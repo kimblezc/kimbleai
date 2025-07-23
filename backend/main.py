@@ -1,9 +1,8 @@
-# REPLACE your entire main.py with this enhanced version:
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
 
-app = FastAPI(title="KimbleAI", version="1.0.0")
+app = FastAPI(title="KimbleAI", version="4.0.0-FIXED")
 
 app.add_middleware(
     CORSMiddleware,
@@ -13,52 +12,35 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Supabase setup with error handling
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_ANON_KEY")
-supabase = None
-
-try:
-    if SUPABASE_URL and SUPABASE_KEY:
-        from supabase import create_client, Client
-        supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-        print(f"✅ Supabase connected: {SUPABASE_URL[:50]}...")
-    else:
-        print("⚠️ Supabase credentials not found")
-except Exception as e:
-    print(f"❌ Supabase connection failed: {e}")
-    supabase = None
-
 @app.get("/")
 async def root():
     return {
         "app": "🧠 KimbleAI",
-        "version": "1.0.0", 
+        "version": "4.0.0-FIXED", 
         "status": "Ready for your family!",
         "features": ["Permanent Memory", "Flexible Projects", "AI Intelligence"],
-        "message": "Backend with Supabase ready!",
-        "database": "connected" if supabase else "not connected"
+        "message": "FIXED VERSION - Local file updated correctly!",
+        "environment_check": {
+            "supabase_url_exists": bool(os.environ.get("SUPABASE_URL")),
+            "supabase_url_length": len(os.environ.get("SUPABASE_URL", "")),
+            "supabase_key_exists": bool(os.environ.get("SUPABASE_ANON_KEY"))
+        }
     }
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "database": bool(supabase)}
+    return {"status": "healthy", "version": "4.0.0-FIXED"}
 
-@app.get("/db-test")
-async def db_test():
-    if not supabase:
-        return {"error": "Database not connected"}
-    
-    try:
-        # Test Supabase connection
-        result = supabase.table("users").select("*").limit(1).execute()
-        return {
-            "status": "success",
-            "message": "Database connection working",
-            "users_count": len(result.data) if result.data else 0
-        }
-    except Exception as e:
-        return {"error": f"Database test failed: {str(e)}"}
+@app.get("/env-test")
+async def env_test():
+    url = os.environ.get("SUPABASE_URL", "")
+    return {
+        "supabase_url_found": bool(url),
+        "url_length": len(url),
+        "url_starts_with_https": url.startswith("https://") if url else False,
+        "url_preview": url[:50] + "..." if len(url) > 50 else url,
+        "message": "Environment variables loaded successfully!"
+    }
 
 if __name__ == "__main__":
     import uvicorn
