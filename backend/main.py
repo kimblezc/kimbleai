@@ -1,9 +1,8 @@
-# REPLACE the entire file with this COMPLETE working version:
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
 
-app = FastAPI(title="KimbleAI", version="5.0.0-WITH-SUPABASE")
+app = FastAPI(title="KimbleAI", version="6.0.0-FORCE-RESTART")
 
 app.add_middleware(
     CORSMiddleware,
@@ -41,10 +40,10 @@ except Exception as e:
 async def root():
     return {
         "app": "🧠 KimbleAI",
-        "version": "5.0.0-WITH-SUPABASE", 
+        "version": "6.0.0-FORCE-RESTART", 
         "status": "Ready for your family!",
         "features": ["Permanent Memory", "Flexible Projects", "AI Intelligence"],
-        "message": "Backend with working Supabase connection!",
+        "message": "Backend restarted - fresh database connection!",
         "database_connected": bool(supabase),
         "database_status": supabase_error
     }
