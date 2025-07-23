@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
-from openai import OpenAI
+import openai
 
 app = FastAPI()
 
@@ -13,16 +13,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize OpenAI client properly
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Set OpenAI API key using the old method that works
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 @app.get("/")
 async def root():
     return {
         "app": "🧠 KimbleAI",
-        "version": "4.1.0",
+        "version": "5.0.0",
         "status": "Ready for your family!",
-        "message": "Fixed OpenAI v1.0+ integration with GPT-4o!"
+        "message": "Fixed OpenAI integration - no more crashes!"
     }
 
 @app.get("/health")
@@ -54,20 +54,20 @@ async def get_projects():
 async def chat(request: dict):
     message = request.get("message", "")
     
-    if not os.getenv("OPENAI_API_KEY"):
+    if not openai.api_key:
         return {
             "response": "OpenAI API key not configured. Please add it to Railway environment variables.",
             "message_stored": False
         }
     
     try:
-        # Use the correct OpenAI v1.0+ syntax
-        response = client.chat.completions.create(
+        # Use the old OpenAI syntax that works with Railway
+        response = openai.ChatCompletion.create(
             model="gpt-4o",
             messages=[
                 {
                     "role": "system", 
-                    "content": "You are KimbleAI, an advanced family AI assistant powered by GPT-4o. You provide expert-level intelligence comparable to ChatGPT-4, with superior reasoning, analysis, and problem-solving capabilities. Help with family organization, document management, complex questions, detailed explanations, and any family-related tasks. Be thorough, accurate, and helpful."
+                    "content": "You are KimbleAI, an advanced family AI assistant powered by GPT-4o. Provide expert-level assistance with family organization, questions, and tasks. Be thorough, accurate, and helpful."
                 },
                 {
                     "role": "user", 
@@ -86,7 +86,7 @@ async def chat(request: dict):
         
     except Exception as e:
         return {
-            "response": f"I'm experiencing some technical difficulties with my AI processing. Error: {str(e)}",
+            "response": f"AI processing error: {str(e)}",
             "message_stored": False
         }
 
