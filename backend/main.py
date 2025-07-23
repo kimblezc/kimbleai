@@ -1,12 +1,9 @@
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
-import openai
 import os
-import jwt
-from datetime import datetime, timedelta
-from typing import Optional, List
+import json
+from datetime import datetime
 
 # Initialize FastAPI
 app = FastAPI(title="KimbleAI", version="2.0.0")
@@ -20,20 +17,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize OpenAI
-openai.api_key = os.getenv("OPENAI_API_KEY")
-JWT_SECRET = os.getenv("JWT_SECRET_KEY", "kimbleai-jwt-2025")
-
-security = HTTPBearer()
-
-# In-memory storage (temporary replacement for Supabase)
+# Simple in-memory storage
 USERS = {
     "zach@kimbleai.com": {"id": "user1", "name": "Zach Kimble", "role": "admin"},
     "family@kimbleai.com": {"id": "user2", "name": "Family User", "role": "user"}
 }
-
-PROJECTS = []
-CONVERSATIONS = []
 
 # Data models
 class LoginRequest(BaseModel):
@@ -41,29 +29,7 @@ class LoginRequest(BaseModel):
 
 class ChatRequest(BaseModel):
     message: str
-    project_id: Optional[str] = None
-
-class ProjectRequest(BaseModel):
-    name: str
-    description: str = ""
-    color: str = "#3b82f6"
-
-# Authentication functions
-def create_token(email: str) -> str:
-    payload = {
-        "email": email,
-        "exp": datetime.utcnow() + timedelta(days=30)
-    }
-    return jwt.encode(payload, JWT_SECRET, algorithm="HS256")
-
-def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
-    try:
-        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=["HS256"])
-        return payload["email"]
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+    project_id: str = None
 
 # Routes
 @app.get("/")
@@ -73,21 +39,23 @@ async def root():
         "version": "2.0.0",
         "status": "Ready for your family!",
         "features": ["Permanent Memory", "Flexible Projects", "AI Intelligence", "User Authentication"],
-        "message": "Now with full AI capabilities! (Demo mode - no database)"
+        "message": "Now with full AI capabilities! (Demo mode - simplified)"
     }
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "message": "KimbleAI backend with AI features (demo mode)"}
+    return {"status": "healthy", "message": "KimbleAI backend simplified"}
 
 @app.post("/auth/login")
 async def login(request: LoginRequest):
-    # Check if user exists in our demo users
+    # Check if user exists
     if request.email not in USERS:
         raise HTTPException(status_code=404, detail="User not found")
     
     user = USERS[request.email]
-    token = create_token(request.email)
+    
+    # Simple token (just the email for demo)
+    token = f"demo_token_{request.email}"
     
     return {
         "access_token": token,
@@ -101,69 +69,40 @@ async def login(request: LoginRequest):
     }
 
 @app.get("/projects")
-async def get_projects(email: str = Depends(verify_token)):
-    # Return user's projects from in-memory storage
-    user_projects = [p for p in PROJECTS if p.get("user_email") == email]
-    return user_projects
+async def get_projects():
+    return []
 
 @app.post("/projects")
-async def create_project(request: ProjectRequest, email: str = Depends(verify_token)):
-    # Create project in memory
-    project = {
-        "id": f"project_{len(PROJECTS) + 1}",
-        "user_email": email,
-        "name": request.name,
-        "description": request.description,
-        "color": request.color,
-        "created_at": datetime.utcnow().isoformat()
-    }
-    
-    PROJECTS.append(project)
-    return project
+async def create_project(request: dict):
+    return {"id": "demo_project", "name": request.get("name", "Demo Project")}
 
 @app.post("/chat")
-async def chat(request: ChatRequest, email: str = Depends(verify_token)):
-    try:
-        # Create AI response using OpenAI
-        response = openai.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {
-                    "role": "system", 
-                    "content": "You are KimbleAI, a family AI assistant with permanent memory. You help with document analysis, project management, and family organization. Be helpful, concise, and remember context from previous conversations. Currently running in demo mode."
-                },
-                {"role": "user", "content": request.message}
-            ],
-            max_tokens=500
-        )
-        
-        ai_response = response.choices[0].message.content
-        
-        # Store conversation in memory
-        conversation = {
-            "user_email": email,
-            "project_id": request.project_id,
-            "messages": [
-                {"role": "user", "content": request.message, "timestamp": datetime.utcnow().isoformat()},
-                {"role": "assistant", "content": ai_response, "timestamp": datetime.utcnow().isoformat()}
-            ],
-            "created_at": datetime.utcnow().isoformat()
-        }
-        
-        CONVERSATIONS.append(conversation)
-        
-        return {
-            "response": ai_response,
-            "message_stored": True,
-            "project_id": request.project_id,
-            "mode": "demo"
-        }
-        
-    except Exception as e:
-        return {
-            "response": f"I'm experiencing some technical difficulties. Error: {str(e)}",
-            "message_stored": False
-        }
+async def chat(request: ChatRequest):
+    # Simple AI response without OpenAI for now
+    responses = [
+        "Hello! I'm KimbleAI, your family AI assistant. I'm currently running in demo mode.",
+        "I can help you organize documents, manage projects, and remember important family information.",
+        "Once we get the full system running, I'll have access to GPT-4 for more intelligent responses!",
+        "Feel free to ask me anything - I'm here to help your family stay organized.",
+        "This is a demo response. Soon I'll be powered by advanced AI to give you better answers!"
+    ]
+    
+    # Simple response based on message content
+    if "hello" in request.message.lower() or "hi" in request.message.lower():
+        ai_response = responses[0]
+    elif "document" in request.message.lower():
+        ai_response = responses[1]
+    elif "project" in request.message.lower():
+        ai_response = responses[2]
+    else:
+        ai_response = responses[3]
+    
+    return {
+        "response": ai_response,
+        "message_stored": True,
+        "project_id": request.project_id,
+        "mode": "demo_simplified"
+    }
 
 if __name__ == "__main__":
     import uvicorn
