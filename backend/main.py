@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
 
-app = FastAPI(title="KimbleAI", version="6.0.0-FORCE-RESTART")
+app = FastAPI(title="KimbleAI", version="6.1.0-CONNECTION-TEST")
 
 app.add_middleware(
     CORSMiddleware,
@@ -40,10 +40,10 @@ except Exception as e:
 async def root():
     return {
         "app": "🧠 KimbleAI",
-        "version": "6.0.0-FORCE-RESTART", 
+        "version": "6.1.0-CONNECTION-TEST", 
         "status": "Ready for your family!",
         "features": ["Permanent Memory", "Flexible Projects", "AI Intelligence"],
-        "message": "Backend restarted - fresh database connection!",
+        "message": "Backend with connection diagnostics!",
         "database_connected": bool(supabase),
         "database_status": supabase_error
     }
@@ -79,6 +79,30 @@ async def env_test():
         "url_valid": fixed_url.startswith("https://"),
         "message": "URL fix applied in code!"
     }
+
+@app.get("/simple-connection-test")
+async def simple_connection_test():
+    try:
+        import requests
+        
+        # Test basic HTTP connection to Supabase
+        url = "https://twscztutyvrvruwomsel.supabase.co"
+        response = requests.get(url, timeout=10)
+        
+        return {
+            "url_tested": url,
+            "status_code": response.status_code,
+            "connection": "SUCCESS - Railway can reach Supabase!",
+            "response_size": len(response.text),
+            "headers": dict(response.headers)
+        }
+    except Exception as e:
+        return {
+            "url_tested": "https://twscztutyvrvruwomsel.supabase.co",
+            "connection": "FAILED",
+            "error": str(e),
+            "error_type": type(e).__name__
+        }
 
 if __name__ == "__main__":
     import uvicorn
