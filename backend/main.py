@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
-import openai
+from openai import OpenAI
 
 app = FastAPI()
 
@@ -13,13 +13,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Initialize OpenAI client properly
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
 @app.get("/")
 async def root():
     return {
         "app": "🧠 KimbleAI",
-        "version": "3.0.0",
+        "version": "4.1.0",
         "status": "Ready for your family!",
-        "message": "Clean OpenAI integration"
+        "message": "Fixed OpenAI v1.0+ integration with GPT-4o!"
     }
 
 @app.get("/health")
@@ -51,34 +54,39 @@ async def get_projects():
 async def chat(request: dict):
     message = request.get("message", "")
     
-    # Set API key directly (this is the pattern that works)
-    openai.api_key = os.getenv("OPENAI_API_KEY")
-    
-    if not openai.api_key:
+    if not os.getenv("OPENAI_API_KEY"):
         return {
             "response": "OpenAI API key not configured. Please add it to Railway environment variables.",
             "message_stored": False
         }
     
     try:
-        # Use the stable v0.28 pattern
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
+        # Use the correct OpenAI v1.0+ syntax
+        response = client.chat.completions.create(
+            model="gpt-4o",
             messages=[
-                {"role": "system", "content": "You are KimbleAI, a helpful family AI assistant."},
-                {"role": "user", "content": message}
+                {
+                    "role": "system", 
+                    "content": "You are KimbleAI, an advanced family AI assistant powered by GPT-4o. You provide expert-level intelligence comparable to ChatGPT-4, with superior reasoning, analysis, and problem-solving capabilities. Help with family organization, document management, complex questions, detailed explanations, and any family-related tasks. Be thorough, accurate, and helpful."
+                },
+                {
+                    "role": "user", 
+                    "content": message
+                }
             ],
-            max_tokens=400
+            max_tokens=800,
+            temperature=0.7
         )
         
         return {
             "response": response.choices[0].message.content,
-            "message_stored": True
+            "message_stored": True,
+            "model": "gpt-4o"
         }
         
     except Exception as e:
         return {
-            "response": f"AI processing error: {str(e)}",
+            "response": f"I'm experiencing some technical difficulties with my AI processing. Error: {str(e)}",
             "message_stored": False
         }
 
