@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
+import openai
 
 app = FastAPI()
 
@@ -16,9 +17,9 @@ app.add_middleware(
 async def root():
     return {
         "app": "🧠 KimbleAI",
-        "version": "2.1.0",
+        "version": "3.0.0",
         "status": "Ready for your family!",
-        "message": "FIXED VERSION - No more OpenAI errors!"
+        "message": "Clean OpenAI integration"
     }
 
 @app.get("/health")
@@ -50,22 +51,36 @@ async def get_projects():
 async def chat(request: dict):
     message = request.get("message", "")
     
-    # Smart responses without OpenAI (for now)
-    responses = {
-        "what is 2+2": "2+2 equals 4! I'm working perfectly now - no more connection errors!",
-        "test": "Test successful! I'm your KimbleAI family assistant, ready to help organize documents and manage family projects!",
-        "hello": "Hello! I'm KimbleAI, your family AI assistant. How can I help you organize your family's information today?",
-        "help": "I can help you organize documents, manage family projects, and keep track of important information. What would you like assistance with?"
-    }
+    # Set API key directly (this is the pattern that works)
+    openai.api_key = os.getenv("OPENAI_API_KEY")
     
-    response_text = responses.get(message.lower(), 
-        f"I understand you said: '{message}'. I'm your family AI assistant! I can help organize documents, manage projects, and track family information. What specific help do you need?")
+    if not openai.api_key:
+        return {
+            "response": "OpenAI API key not configured. Please add it to Railway environment variables.",
+            "message_stored": False
+        }
     
-    return {
-        "response": response_text,
-        "message_stored": True,
-        "mode": "fixed_working_version"
-    }
+    try:
+        # Use the stable v0.28 pattern
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are KimbleAI, a helpful family AI assistant."},
+                {"role": "user", "content": message}
+            ],
+            max_tokens=400
+        )
+        
+        return {
+            "response": response.choices[0].message.content,
+            "message_stored": True
+        }
+        
+    except Exception as e:
+        return {
+            "response": f"AI processing error: {str(e)}",
+            "message_stored": False
+        }
 
 if __name__ == "__main__":
     import uvicorn
