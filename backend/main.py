@@ -2,7 +2,6 @@ from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
-from supabase import create_client, Client
 import openai
 import os
 import jwt
@@ -21,15 +20,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize clients
-supabase_url = os.getenv("SUPABASE_URL")
-supabase_key = os.getenv("SUPABASE_ANON_KEY")
-supabase: Client = create_client(supabase_url, supabase_key)
-
+# Initialize OpenAI
 openai.api_key = os.getenv("OPENAI_API_KEY")
 JWT_SECRET = os.getenv("JWT_SECRET_KEY", "kimbleai-jwt-2025")
 
 security = HTTPBearer()
+
+# In-memory storage (temporary replacement for Supabase)
+USERS = {
+    "zach@kimbleai.com": {"id": "user1", "name": "Zach Kimble", "role": "admin"},
+    "family@kimbleai.com": {"id": "user2", "name": "Family User", "role": "user"}
+}
+
+PROJECTS = []
+CONVERSATIONS = []
 
 # Data models
 class LoginRequest(BaseModel):
@@ -69,22 +73,20 @@ async def root():
         "version": "2.0.0",
         "status": "Ready for your family!",
         "features": ["Permanent Memory", "Flexible Projects", "AI Intelligence", "User Authentication"],
-        "message": "Now with full AI capabilities!"
+        "message": "Now with full AI capabilities! (Demo mode - no database)"
     }
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "message": "KimbleAI backend with AI features"}
+    return {"status": "healthy", "message": "KimbleAI backend with AI features (demo mode)"}
 
 @app.post("/auth/login")
 async def login(request: LoginRequest):
-    # Verify user exists in database
-    result = supabase.table("users").select("*").eq("email", request.email).execute()
-    
-    if not result.data:
+    # Check if user exists in our demo users
+    if request.email not in USERS:
         raise HTTPException(status_code=404, detail="User not found")
     
-    user = result.data[0]
+    user = USERS[request.email]
     token = create_token(request.email)
     
     return {
@@ -92,7 +94,7 @@ async def login(request: LoginRequest):
         "token_type": "bearer",
         "user": {
             "id": user["id"],
-            "email": user["email"],
+            "email": request.email,
             "name": user["name"],
             "role": user["role"]
         }
@@ -100,53 +102,35 @@ async def login(request: LoginRequest):
 
 @app.get("/projects")
 async def get_projects(email: str = Depends(verify_token)):
-    # Get user
-    user_result = supabase.table("users").select("id").eq("email", email).execute()
-    if not user_result.data:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    user_id = user_result.data[0]["id"]
-    
-    # Get projects
-    result = supabase.table("projects").select("*").eq("user_id", user_id).execute()
-    return result.data
+    # Return user's projects from in-memory storage
+    user_projects = [p for p in PROJECTS if p.get("user_email") == email]
+    return user_projects
 
 @app.post("/projects")
 async def create_project(request: ProjectRequest, email: str = Depends(verify_token)):
-    # Get user
-    user_result = supabase.table("users").select("id").eq("email", email).execute()
-    if not user_result.data:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    user_id = user_result.data[0]["id"]
-    
-    # Create project
-    result = supabase.table("projects").insert({
-        "user_id": user_id,
+    # Create project in memory
+    project = {
+        "id": f"project_{len(PROJECTS) + 1}",
+        "user_email": email,
         "name": request.name,
         "description": request.description,
-        "color": request.color
-    }).execute()
+        "color": request.color,
+        "created_at": datetime.utcnow().isoformat()
+    }
     
-    return result.data[0]
+    PROJECTS.append(project)
+    return project
 
 @app.post("/chat")
 async def chat(request: ChatRequest, email: str = Depends(verify_token)):
     try:
-        # Get user
-        user_result = supabase.table("users").select("id").eq("email", email).execute()
-        if not user_result.data:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        user_id = user_result.data[0]["id"]
-        
-        # Create AI response
+        # Create AI response using OpenAI
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {
                     "role": "system", 
-                    "content": "You are KimbleAI, a family AI assistant with permanent memory. You help with document analysis, project management, and family organization. Be helpful, concise, and remember context from previous conversations."
+                    "content": "You are KimbleAI, a family AI assistant with permanent memory. You help with document analysis, project management, and family organization. Be helpful, concise, and remember context from previous conversations. Currently running in demo mode."
                 },
                 {"role": "user", "content": request.message}
             ],
@@ -155,22 +139,24 @@ async def chat(request: ChatRequest, email: str = Depends(verify_token)):
         
         ai_response = response.choices[0].message.content
         
-        # Store conversation in database
-        conversation_data = {
-            "user_id": user_id,
+        # Store conversation in memory
+        conversation = {
+            "user_email": email,
             "project_id": request.project_id,
             "messages": [
                 {"role": "user", "content": request.message, "timestamp": datetime.utcnow().isoformat()},
                 {"role": "assistant", "content": ai_response, "timestamp": datetime.utcnow().isoformat()}
-            ]
+            ],
+            "created_at": datetime.utcnow().isoformat()
         }
         
-        supabase.table("conversations").insert(conversation_data).execute()
+        CONVERSATIONS.append(conversation)
         
         return {
             "response": ai_response,
             "message_stored": True,
-            "project_id": request.project_id
+            "project_id": request.project_id,
+            "mode": "demo"
         }
         
     except Exception as e:
